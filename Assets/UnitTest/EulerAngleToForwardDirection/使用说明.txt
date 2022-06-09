@@ -1,0 +1,6 @@
+
+
+1. 调整Cube物体的Rotation角度
+2. 调整Cube物体材质球上的 Virtual Light Rotation
+3. 打开FrameDebug找到Cube绘制事件，查看_CalculatedForward和_TransformForward是否一致
+4. 一致则表示根据欧拉角计算的forward方向是正确的
