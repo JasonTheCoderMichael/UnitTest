@@ -1,27 +1,51 @@
 using System.IO;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public class SH : MonoBehaviour
 {
     public Cubemap skyCubemap;
     public int sampleCount;
+    public int SHDegree;
+
+    public Material rebuildMaterial;
+    public Mesh sphereMesh;
+    
+    private CommandBuffer m_cmd;
+    private Camera m_camera;
     
     private void OnEnable()
     {
+        m_cmd = new CommandBuffer();
+        m_cmd.name = "Rebuild Light using SH Coefficient";
         
+        m_camera = Camera.main;
     }
 
     private void OnGUI()
     {
         if (GUI.Button(new Rect(0, 0, 200, 100), "Process"))
         {
-            Cubemap processedCubemap = ProcessCubemap(skyCubemap);
-            
             // // 调试用 //
+            // Cubemap processedCubemap = ProcessCubemap(skyCubemap);
             // Cubemap cubemapCopy = CreateCubemapCopy(skyCubemap);
+            // SaveCubemap(processedCubemap);
             
-            SaveCubemap(processedCubemap);
+            Vector4[] shCoefficients = CalculateSHCoefficient(skyCubemap, SHDegree, sampleCount);
+            Matrix4x4 viewMatrix = Matrix4x4.TRS(m_camera.transform.position, m_camera.transform.rotation, new Vector3(1, 1, -1)).inverse;
+            Matrix4x4 projectionMatrix = m_camera.projectionMatrix;
+            rebuildMaterial.SetVectorArray("_SHCoefficients", shCoefficients);
+            
+            m_cmd.Clear();
+            m_cmd.ClearRenderTarget(true, true, Color.black);
+            m_cmd.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
+            m_cmd.DrawMesh(sphereMesh, Matrix4x4.identity, rebuildMaterial);
         }
+    }
+
+    private void Update()
+    {
+        Graphics.ExecuteCommandBuffer(m_cmd);
     }
 
     private Cubemap ProcessCubemap(Cubemap cubemap)
@@ -45,6 +69,46 @@ public class SH : MonoBehaviour
         }
         destCubemap.Apply();
         return destCubemap;
+    }
+    
+    private Vector4[] CalculateSHCoefficient(Cubemap cubemap, int shDegree, int cubemapSampleCount)
+    {
+        if (cubemap == null)
+        {
+            return null;
+        }
+
+        Vector4[] shCoefficients = new Vector4[shDegree * shDegree];
+        for (int i = 0; i < shCoefficients.Length; i++)
+        {
+            shCoefficients[i] = Vector4.zero;
+        }
+
+        for (int i = 0; i < cubemapSampleCount; i++)
+        {
+            Vector3 rndDirection = Random.onUnitSphere;
+            CubemapFace face = GetCubemapFace(rndDirection);
+            Vector2 uv = GetUV(face, rndDirection);
+            int coordX = (int) (skyCubemap.width * uv.x);     // [0, width - 1] //
+            int coordY = (int) (skyCubemap.height * uv.y);    // [0, height - 1] //
+            Color sourceColor = skyCubemap.GetPixel(face, coordX, coordY);
+
+            for (int l = 0; l < shDegree; l++)
+            {
+                for (int m = -l; m <= l; m++)
+                {
+                    int index = l * (l + 1) + m;
+                    Vector4 coefficient = shCoefficients[index];
+                    float shBasis = SHCoefficient.SHBasis(l, m, rndDirection);
+                    coefficient.x += sourceColor.r * shBasis;
+                    coefficient.y += sourceColor.g * shBasis;
+                    coefficient.z += sourceColor.b * shBasis;
+                    shCoefficients[index] = coefficient;
+                }
+            }
+        }
+
+        return shCoefficients;
     }
     
     // 创建cubemap副本 //

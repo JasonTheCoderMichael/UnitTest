@@ -347,4 +347,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   skyCubemap: {fileID: 8900000, guid: e9cdd01ab6a176c4c9b1ebca0afde680, type: 3}
-  sampleCount: 12800
+  sampleCount: 1024000
+  SHDegree: 3
+  rebuildMaterial: {fileID: 2100000, guid: 94e481fb18f006d4097abf0ed3bd5574, type: 2}
+  sphereMesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
