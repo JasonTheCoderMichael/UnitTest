@@ -2,6 +2,7 @@ Shader "MJ/RebuildLight"
 {
     Properties
     {
+        _Skybox("Skybox", Cube) = "white"
     }
     
     SubShader
@@ -10,15 +11,14 @@ Shader "MJ/RebuildLight"
 
         Pass
         {
-            ZTest  Always
-            ZWrite Off
+            // ZTest  Always
+            // ZWrite Off
             // 一定要 Cull Off //
-            Cull Off
+            // Cull Off
 
             HLSLPROGRAM
-// Upgrade NOTE: excluded shader from DX11, OpenGL ES 2.0 because it uses unsized arrays
-#pragma exclude_renderers d3d11 gles
-            #pragma target 3.0
+            
+            #pragma target 4.0
                         
             #pragma vertex vert
             #pragma fragment frag
@@ -26,8 +26,10 @@ Shader "MJ/RebuildLight"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "SHCoefficient.hlsl"
 
-            float4 _SHCoefficients[];
-            int _SHDegree;
+            samplerCUBE _Skybox;
+            uniform float4 _SHCoefficients[9];
+            uniform int _SHOrder;
+            uniform float _LerpValue;
 
             struct appdata
             {
@@ -40,7 +42,8 @@ Shader "MJ/RebuildLight"
             {
                 float2 uv : TEXCOORD0;
                 float4 vertex : SV_POSITION;
-                half3 rebuiltLight : TEXCOORD1;
+                // half3 rebuiltLight : TEXCOORD1;
+                float3 normal : TEXCOORD2;
             };
 
             v2f vert (appdata v)
@@ -52,18 +55,32 @@ Shader "MJ/RebuildLight"
                 #endif
                 o.uv = v.uv;
 
-                half3 rebuiltLight = 0;
-                for(int i = 0; i < _SHDegree * _SHDegree; i++)
-                {
-                    rebuiltLight += SHBasis(i, v.normal) * _SHCoefficients[i];
-                }
-                o.rebuiltLight = rebuiltLight;
+                // o.vertex = TransformObjectToHClip(v.vertex);
+                // half3 rebuiltLight = 0;
+                // UNITY_LOOP
+                // for(int i = 0; i < _SHOrder * _SHOrder; i++)
+                // {
+                //     rebuiltLight += SHBasis(i, v.normal) * _SHCoefficients[i];
+                // }
+                // o.rebuiltLight = rebuiltLight;
+
+                o.normal = v.normal;
                 return o;
             }
 
             half4 frag (v2f i) : SV_Target
             {
-                return half4(i.rebuiltLight, 1);
+                float3 normal = normalize(i.normal);
+                half3 originSkyColor = texCUBE(_Skybox, normal).rgb;
+                
+                half3 rebuiltSkyColor = 0;
+                UNITY_LOOP
+                for(int i = 0; i < _SHOrder * _SHOrder; i++)
+                {
+                    rebuiltSkyColor += SHBasis(i, normal) * _SHCoefficients[i];
+                }
+                half3 finalColor = lerp(rebuiltSkyColor, originSkyColor, _LerpValue);
+                return half4(finalColor, 1);
             }
             ENDHLSL
         }

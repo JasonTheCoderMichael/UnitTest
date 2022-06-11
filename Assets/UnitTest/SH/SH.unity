@@ -201,7 +201,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 335072430}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -10}
+  m_LocalPosition: {x: 0, y: 1, z: -5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -347,7 +347,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   skyCubemap: {fileID: 8900000, guid: e9cdd01ab6a176c4c9b1ebca0afde680, type: 3}
-  sampleCount: 1024000
-  SHDegree: 3
+  SHOrder: 3
+  lerpValue: 0
   rebuildMaterial: {fileID: 2100000, guid: 94e481fb18f006d4097abf0ed3bd5574, type: 2}
   sphereMesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}

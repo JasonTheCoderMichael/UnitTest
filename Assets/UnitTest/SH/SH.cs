@@ -5,14 +5,17 @@ using UnityEngine.Rendering;
 public class SH : MonoBehaviour
 {
     public Cubemap skyCubemap;
-    public int sampleCount;
-    public int SHDegree;
+    public int SHOrder;
+    public float lerpValue;
 
     public Material rebuildMaterial;
     public Mesh sphereMesh;
     
     private CommandBuffer m_cmd;
     private Camera m_camera;
+    private RenderTexture m_rebuiltRT;
+    private Vector4[] m_shCoefficients;
+    private Cubemap m_rebuiltCubemap;
     
     private void OnEnable()
     {
@@ -20,27 +23,48 @@ public class SH : MonoBehaviour
         m_cmd.name = "Rebuild Light using SH Coefficient";
         
         m_camera = Camera.main;
+        m_rebuiltRT = new RenderTexture(skyCubemap.width, skyCubemap.height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+        m_rebuiltRT.name = "RebuiltRT";
     }
 
     private void OnGUI()
     {
-        if (GUI.Button(new Rect(0, 0, 200, 100), "Process"))
+        if (GUI.Button(new Rect(0, 0, 200, 100), "Generate SH Coefficient"))
         {
-            // // 调试用 //
-            // Cubemap processedCubemap = ProcessCubemap(skyCubemap);
-            // Cubemap cubemapCopy = CreateCubemapCopy(skyCubemap);
-            // SaveCubemap(processedCubemap);
-            
-            Vector4[] shCoefficients = CalculateSHCoefficient(skyCubemap, SHDegree, sampleCount);
+            // m_shCoefficients = CalculateSHCoefficient(skyCubemap, SHOrder, 4096);
+            m_shCoefficients = CalculateSHCoefficient2(skyCubemap, SHOrder, 4096);
             Matrix4x4 viewMatrix = Matrix4x4.TRS(m_camera.transform.position, m_camera.transform.rotation, new Vector3(1, 1, -1)).inverse;
             Matrix4x4 projectionMatrix = m_camera.projectionMatrix;
-            rebuildMaterial.SetVectorArray("_SHCoefficients", shCoefficients);
-            
+            rebuildMaterial.SetVectorArray("_SHCoefficients", m_shCoefficients);
+            rebuildMaterial.SetInt("_SHOrder", SHOrder);
+
+            int rtID = Shader.PropertyToID("RebuildLightRT");
             m_cmd.Clear();
+            m_cmd.GetTemporaryRT(rtID, Screen.width, Screen.height, 24);
+            m_cmd.SetRenderTarget(new RenderTargetIdentifier(rtID));
+            // m_cmd.SetRenderTarget(m_rebuiltRT);
             m_cmd.ClearRenderTarget(true, true, Color.black);
             m_cmd.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
             m_cmd.DrawMesh(sphereMesh, Matrix4x4.identity, rebuildMaterial);
+            m_cmd.ReleaseTemporaryRT(rtID);
         }
+
+        if (GUI.Button(new Rect(200, 0, 200, 100), "Rebuild"))
+        {
+            // m_rebuiltCubemap = RebuildCubemap(skyCubemap.width, m_shCoefficients, 1024 * 1024);
+            m_rebuiltCubemap = RebuildCubemap2(skyCubemap.width, m_shCoefficients, 1024 * 1024);
+            
+            // // 调试用 //
+            // Cubemap processedCubemap = SampleCubemapAndDoNothing(skyCubemap, 1024 * 1024);
+        }
+
+        if (GUI.Button(new Rect(400, 0, 200, 100), "Save Rebuild Result To Png"))
+        {
+            SaveCubeAsPng(m_rebuiltCubemap);
+        }
+
+        lerpValue = GUI.HorizontalSlider(new Rect(0, 200, 200, 50), lerpValue, 0, 1);
+        rebuildMaterial.SetFloat("_LerpValue", lerpValue);
     }
 
     private void Update()
@@ -48,7 +72,7 @@ public class SH : MonoBehaviour
         Graphics.ExecuteCommandBuffer(m_cmd);
     }
 
-    private Cubemap ProcessCubemap(Cubemap cubemap)
+    private Cubemap SampleCubemapAndDoNothing(Cubemap cubemap, int sampleCount)
     {
         if (cubemap == null)
         {
@@ -71,14 +95,14 @@ public class SH : MonoBehaviour
         return destCubemap;
     }
     
-    private Vector4[] CalculateSHCoefficient(Cubemap cubemap, int shDegree, int cubemapSampleCount)
+    private Vector4[] CalculateSHCoefficient(Cubemap cubemap, int shOrder, int cubemapSampleCount)
     {
         if (cubemap == null)
         {
             return null;
         }
 
-        Vector4[] shCoefficients = new Vector4[shDegree * shDegree];
+        Vector4[] shCoefficients = new Vector4[shOrder * shOrder];
         for (int i = 0; i < shCoefficients.Length; i++)
         {
             shCoefficients[i] = Vector4.zero;
@@ -93,7 +117,7 @@ public class SH : MonoBehaviour
             int coordY = (int) (skyCubemap.height * uv.y);    // [0, height - 1] //
             Color sourceColor = skyCubemap.GetPixel(face, coordX, coordY);
 
-            for (int l = 0; l < shDegree; l++)
+            for (int l = 0; l < shOrder; l++)
             {
                 for (int m = -l; m <= l; m++)
                 {
@@ -106,6 +130,59 @@ public class SH : MonoBehaviour
                     shCoefficients[index] = coefficient;
                 }
             }
+        }
+
+        for (int i = 0; i < shCoefficients.Length; i++)
+        {
+            shCoefficients[i] *= 4 * Mathf.PI / cubemapSampleCount;
+        }
+
+        return shCoefficients;
+    }
+    
+    private Vector4[] CalculateSHCoefficient2(Cubemap cubemap, int shOrder, int cubemapSampleCount)
+    {
+        if (cubemap == null)
+        {
+            return null;
+        }
+
+        Vector4[] shCoefficients = new Vector4[shOrder * shOrder];
+        for (int i = 0; i < shCoefficients.Length; i++)
+        {
+            shCoefficients[i] = Vector4.zero;
+        }
+
+        for (int i = 0; i < cubemapSampleCount; i++)
+        {
+            Vector3 pointOnUnitSphere = Random.onUnitSphere;
+            CubemapFace face = GetCubemapFace(pointOnUnitSphere);
+            Vector2 uv = GetUV(face, pointOnUnitSphere);
+            int coordX = (int) (skyCubemap.width * uv.x);     // [0, width - 1] //
+            int coordY = (int) (skyCubemap.height * uv.y);    // [0, height - 1] //
+            Color sourceColor = skyCubemap.GetPixel(face, coordX, coordY);
+            
+            for (int l = 0; l < shOrder; l++)
+            {
+                for (int m = -l; m <= l; m++)
+                {
+                    int index = l * (l + 1) + m;
+                    Vector4 coefficient = shCoefficients[index];
+                    float theta = 0;
+                    float phi = 0;  
+                    CartesianToSphere(pointOnUnitSphere, ref theta, ref phi);
+                    float shBasis = SHCoefficient2.Y(l, m, theta, phi);
+                    coefficient.x += sourceColor.r * shBasis;
+                    coefficient.y += sourceColor.g * shBasis;
+                    coefficient.z += sourceColor.b * shBasis;
+                    shCoefficients[index] = coefficient;
+                }
+            }
+        }
+
+        for (int i = 0; i < shCoefficients.Length; i++)
+        {
+            shCoefficients[i] *= 4 * Mathf.PI / cubemapSampleCount;
         }
 
         return shCoefficients;
@@ -157,7 +234,7 @@ public class SH : MonoBehaviour
     }
 
     // 保存cubemap到磁盘 //
-    private void SaveCubemap(Cubemap cubemap)
+    private void SaveCubeAsPng(Cubemap cubemap)
     {
         if (cubemap == null)
         {
@@ -167,10 +244,10 @@ public class SH : MonoBehaviour
         Texture2D tex2D = ConvertCubemapToTexture2D(cubemap);
 
 #if UNITY_EDITOR
-        string sampledCubemapPath = "Assets/UnitTest/SH/Sampled.asset";
-        UnityEditor.AssetDatabase.CreateAsset(cubemap, sampledCubemapPath);
-        UnityEditor.AssetDatabase.ImportAsset(sampledCubemapPath);
-        UnityEditor.AssetDatabase.Refresh();
+        // string sampledCubemapPath = "Assets/UnitTest/SH/Sampled.asset";
+        // UnityEditor.AssetDatabase.CreateAsset(cubemap, sampledCubemapPath);
+        // UnityEditor.AssetDatabase.ImportAsset(sampledCubemapPath);
+        // UnityEditor.AssetDatabase.Refresh();
 
         string sampledPNGPath = "Assets/UnitTest/SH/SampledPNG.png";
         byte[] pngBytes = tex2D.EncodeToPNG();
@@ -326,5 +403,106 @@ public class SH : MonoBehaviour
                 break;
         }
         return face;
+    }
+
+    private Cubemap RebuildCubemap(int width,Vector4[] shCoefficients, int rebuildSampleCount)
+    {
+        Cubemap rebuildCubemap = new Cubemap(width, TextureFormat.ARGB32, false);
+        
+        for (int i = 0; i < rebuildSampleCount; i++)
+        {
+            Vector3 pointOnUnitSphere = Random.onUnitSphere;
+            CubemapFace face = GetCubemapFace(pointOnUnitSphere);
+            Vector2 uv = GetUV(face, pointOnUnitSphere);
+            int coordX = (int) (width * uv.x);     // [0, width - 1] //
+            int coordY = (int) (width * uv.y);     // [0, height - 1] //
+            Color rebuiltColor = Color.black;
+
+            for (int l = 0; l < SHOrder; l++)
+            {
+                for (int m = -l; m <= l; m++)
+                {
+                    int index = l * (l + 1) + m;
+                    Vector4 coefficient = shCoefficients[index];
+                    float shBasis = SHCoefficient.SHBasis(l, m, pointOnUnitSphere);
+                    rebuiltColor.r += coefficient.x * shBasis;
+                    rebuiltColor.g += coefficient.y * shBasis;
+                    rebuiltColor.b += coefficient.z * shBasis;
+                }
+            }
+            
+            // 上下翻转 //
+            // rebuildCubemap.SetPixel(face, coordX, width - 1 - coordY, rebuiltColor);
+            rebuildCubemap.SetPixel(face, coordX, coordY, rebuiltColor);
+        }
+        return rebuildCubemap;
+    }
+    
+    private Cubemap RebuildCubemap2(int width, Vector4[] shCoefficients, int rebuildSampleCount)
+    {
+        Cubemap rebuildCubemap = new Cubemap(width, TextureFormat.ARGB32, false);
+        
+        for (int i = 0; i < rebuildSampleCount; i++)
+        {
+            Vector3 pointOnUnitSphere = Random.onUnitSphere;
+            CubemapFace face = GetCubemapFace(pointOnUnitSphere);
+            Vector2 uv = GetUV(face, pointOnUnitSphere);
+            int coordX = (int) (width * uv.x);     // [0, width - 1] //
+            int coordY = (int) (width * uv.y);     // [0, height - 1] //
+            Color rebuiltColor = Color.black;
+
+            for (int l = 0; l < SHOrder; l++)
+            {
+                for (int m = -l; m <= l; m++)
+                {
+                    int index = l * (l + 1) + m;
+                    Vector4 coefficient = shCoefficients[index];
+                    float theta = 0;
+                    float phi = 0;  
+                    CartesianToSphere(pointOnUnitSphere, ref theta, ref phi);
+                    float shBasis = SHCoefficient2.Y(l, m, theta, phi);
+                    rebuiltColor.r += coefficient.x * shBasis;
+                    rebuiltColor.g += coefficient.y * shBasis;
+                    rebuiltColor.b += coefficient.z * shBasis;
+                }
+            }
+            
+            // 上下翻转 //
+            // rebuildCubemap.SetPixel(face, coordX, width - 1 - coordY, rebuiltColor);
+            rebuildCubemap.SetPixel(face, coordX, coordY, rebuiltColor);
+        }
+        return rebuildCubemap;
+    }
+
+    private void SaveRTAsPng(RenderTexture rt, string name)
+    {
+        RenderTexture activeRT = RenderTexture.active;
+        RenderTexture.active = rt;
+        Texture2D texture = new Texture2D(rt.width, rt.height, TextureFormat.ARGB32, false, true);
+        texture.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+        byte[] pngBytes = texture.EncodeToPNG();
+        string assetPath = "Assets/UnitTest/SH/" + name + ".png";
+        File.WriteAllBytes(assetPath, pngBytes);
+#if UNITY_EDITOR
+        UnityEditor.AssetDatabase.ImportAsset(assetPath);
+        UnityEditor.AssetDatabase.Refresh();
+#endif
+        RenderTexture.active = activeRT;
+    }
+
+    private void CartesianToSphere(Vector3 pointOnSphere, ref float theta, ref float phi)
+    {
+        // 第一版 //
+        theta = Mathf.Acos(pointOnSphere.z);                  // [0, pi] //
+        phi = Mathf.Atan(pointOnSphere.y/pointOnSphere.x);    // [-2/pi, 2/pi]
+        
+        if (pointOnSphere.x < 0)
+        {
+            phi += Mathf.PI;
+        }
+        else if (pointOnSphere.y < 0)
+        {
+            phi += 2 * Mathf.PI;
+        }
     }
 }

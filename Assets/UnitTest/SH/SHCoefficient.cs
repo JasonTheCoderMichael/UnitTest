@@ -91,12 +91,12 @@ public class SHCoefficient
     
     public static float Y22(Vector3 direction)
     {
-        return 1 / 2.0f * sqrt(15.0f/pi) * (direction.x * direction.x - direction.y * direction.y);
+        return 1 / 4.0f * sqrt(15.0f/pi) * (direction.x * direction.x - direction.y * direction.y);
     }
     
     private static float sqrt(float f)
     {
-        return sqrt(f);
+        return Mathf.Sqrt(f);
     }
 
     private static float pi = 3.1415926f;

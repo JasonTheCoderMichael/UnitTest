@@ -2,16 +2,11 @@
 #ifndef SH_COEFFICIENT_INCLUDE
 #define SH_COEFFICIENT_INCLUDE
 
-float sqrt(float f)
-{
-    return sqrt(f);
-}
-
 #define pi 3.1415926f
 
 float Y0()
 {
-    return 1/2.0f * sqrt(1.0f / pi);
+    return 1 / 2.0f * sqrt(1.0f / pi);
 }
 
 float Y1_1(float3 direction)
@@ -51,7 +46,7 @@ float Y21(float3 direction)
     
 float Y22(float3 direction)
 {
-    return 1 / 2.0f * sqrt(15.0f/pi) * (direction.x * direction.x - direction.y * direction.y);
+    return 1 / 4.0f * sqrt(15.0f/pi) * (direction.x * direction.x - direction.y * direction.y);
 }
 
 float SHBasis(int index, float3 direciton)
