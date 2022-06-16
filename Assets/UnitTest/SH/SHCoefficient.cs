@@ -8,7 +8,7 @@ public class SHCoefficient
         switch (l)
         {
             case 0:
-                SHBasis = Y0();
+                SHBasis = Y0(direction);
                 break;
             case 1:
                 switch (m)
@@ -16,8 +16,8 @@ public class SHCoefficient
                     case -1:
                         SHBasis = Y1_1(direction);
                         break;
-                    case 0:
-                        SHBasis = Y11(direction);
+                    case 0:         // modification1: use wrong function at first , fixed already //
+                        SHBasis = Y10(direction);
                         break;
                     case 1:
                         SHBasis = Y11(direction);
@@ -49,47 +49,56 @@ public class SHCoefficient
         return SHBasis;
     }
 
-    public static float Y0()
+    private delegate float SHFunc(Vector3 direction);
+
+    private static readonly SHFunc[] shfunctions = new SHFunc[9] { Y0, Y1_1, Y10, Y11, Y2_2, Y2_1, Y20, Y21, Y22 };
+    
+    public static float Y(int index, Vector3 direction)
+    {
+        return shfunctions[index](direction);
+    }
+
+    private static float Y0(Vector3 direction)
     {
         return 1/2.0f * sqrt(1.0f / pi);
     }
 
-    public static float Y1_1(Vector3 direction)
+    private static float Y1_1(Vector3 direction)
     {
         return sqrt(3.0f / (4 * pi)) * direction.y;
     }
     
-    public static float Y10(Vector3 direction)
+    private static float Y10(Vector3 direction)
     {
         return sqrt(3.0f / (4 * pi)) * direction.z;
     }
     
-    public static float Y11(Vector3 direction)
+    private static float Y11(Vector3 direction)
     {
         return sqrt(3.0f / (4 * pi)) * direction.x;
     }
 
-    public static float Y2_2(Vector3 direction)
+    private static float Y2_2(Vector3 direction)
     {
-        return 1 / 2.0f * sqrt(15.0f/pi) * direction.x * direction.y;
+        return 1.0f / 2.0f * sqrt(15.0f/pi) * direction.x * direction.y;
     }
 
-    public static float Y2_1(Vector3 direction)
+    private static float Y2_1(Vector3 direction)
     {
-        return 1 / 2.0f * sqrt(15.0f/pi) * direction.y * direction.z;
+        return 1.0f / 2.0f * sqrt(15.0f/pi) * direction.y * direction.z;
     }
     
-    public static float Y20(Vector3 direction)
+    private static float Y20(Vector3 direction)
     {
         return 1 / 4.0f * sqrt(5.0f/pi) * (3 * direction.z * direction.z - 1);
     }
     
-    public static float Y21(Vector3 direction)
+    private static float Y21(Vector3 direction)
     {
         return 1 / 2.0f * sqrt(15.0f/pi) * direction.x * direction.z;
     }
     
-    public static float Y22(Vector3 direction)
+    private static float Y22(Vector3 direction)
     {
         return 1 / 4.0f * sqrt(15.0f/pi) * (direction.x * direction.x - direction.y * direction.y);
     }

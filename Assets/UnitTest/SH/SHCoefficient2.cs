@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 
 public class SHCoefficient2
 {
@@ -24,7 +23,8 @@ public class SHCoefficient2
     private static float K(int l, int m)
     {
         m = (int)abs(m);
-        return sqrt((2 * l + 1) / (4 * pi) * Factorial(l - m) / Factorial(l + m));
+        float item = (2 * l + 1) * Factorial(l - m) / (4 * pi * Factorial(l + m));
+        return sqrt(item);
     }
 
     private static float P(int l, int m, float x)
@@ -43,6 +43,22 @@ public class SHCoefficient2
     }
 
     // 当 m==0 时传入的参数为 -1 //
+    // private static float DoubleFactorial(int x)
+    // {
+    //     if (x == 0 || x == -1)
+    //     {
+    //         return 1;
+    //     }
+    //
+    //     int result = x;
+    //     while (x > 2)
+    //     {
+    //         x -= 2;
+    //         result *= x;
+    //     }
+    //     return result;
+    // }
+    
     private static float DoubleFactorial(int x)
     {
         if (x == 0 || x == -1)
@@ -51,15 +67,30 @@ public class SHCoefficient2
         }
 
         int result = x;
-        while (x > 2)
+        while ((x -= 2) > 0)
         {
-            x -= 2;
             result *= x;
         }
         return result;
     }
 
     // 阶乘 //
+    // private static int Factorial(int v)
+    // {
+    //     if (v == 0)
+    //     {
+    //         return 1;
+    //     }
+    //
+    //     int result = v;
+    //     while (v > 1)
+    //     {
+    //         v--;
+    //         result *= v;
+    //     }
+    //     return result;
+    // }
+    
     private static int Factorial(int v)
     {
         if (v == 0)
@@ -68,9 +99,8 @@ public class SHCoefficient2
         }
 
         int result = v;
-        while (v > 1)
+        while (--v > 0)
         {
-            v--;
             result *= v;
         }
         return result;
