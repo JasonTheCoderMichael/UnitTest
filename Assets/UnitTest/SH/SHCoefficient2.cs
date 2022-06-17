@@ -4,6 +4,13 @@ public class SHCoefficient2
 {
     private static float pi = 3.1415926f;
 
+    public static float Y(int index, float theta, float phi)
+    {
+        int l = (int)Mathf.Sqrt(index);
+        int m = index - l * (l + 1);
+        return Y(l, m, theta, phi);
+    }
+
     public static float Y(int l, int m, float theta, float phi)
     {
         if (m > 0)
@@ -129,5 +136,11 @@ public class SHCoefficient2
     private static float cos(float radian)
     {
         return Mathf.Cos(radian);
+    }
+    
+    private static void IndexToLM(int index, out int l, out int m)
+    {
+        l = (int)Mathf.Sqrt(index);
+        m = index - l * (l + 1);
     }
 }

@@ -6,8 +6,7 @@ public class SH : MonoBehaviour
 {
     public Cubemap skyCubemap;
     public int SHOrder;
-    public Material skyboxMaterial;
-    
+
     private Vector4[] m_shCoefficients;
     private Cubemap m_rebuiltCubemap;
     
@@ -15,21 +14,49 @@ public class SH : MonoBehaviour
     private Cubemap m_rebuiltCubemap2;
 
     private Vector3[] m_rndPoints;
+    private Vector4[] m_gizmosPoints;
+    private int m_visualizeLevel;
+
+    private SHVisualizeData[] m_shVisualDatas;
     
     private void OnEnable()
     {
-        
+    }
+    
+    public struct SHVisualizeData
+    {
+        public Vector3 position;
+        public float distanceFromOrigin;
+        public Color color;
     }
 
     private void OnGUI()
     {
-        if (GUI.Button(new Rect(0, 0, 200, 100), "Generate SH_3 Coefficient"))
-        {
-            using (Timer timer = new Timer("CalculateSHCoefficient", Timer.ETimerUnit.Millisecond))
-            {
-                m_shCoefficients = CalculateCoefficientSH_3(skyCubemap, m_rndPoints);
-            }
-        }
+        // if (GUI.Button(new Rect(0, 0, 200, 100), "Generate SH_3 Coefficient"))
+        // {
+        //     using (Timer timer = new Timer("CalculateSHCoefficient", Timer.ETimerUnit.Millisecond))
+        //     {
+        //         m_shCoefficients = CalculateCoefficientSH_3(skyCubemap, m_rndPoints);
+        //     }
+        // }
+        //
+        // if (GUI.Button(new Rect(200, 0, 200, 100), "Rebuild SH_3 To Cubemap"))
+        // {
+        //     using (Timer timer = new Timer("RebuildCubemap", Timer.ETimerUnit.Millisecond))
+        //     {
+        //         m_rebuiltCubemap = RebuildSH3ToCubemap(skyCubemap.width, m_shCoefficients, 1024 * 1024);
+        //         // skyboxMaterial.SetTexture("_SkyboxTex", m_rebuiltCubemap);
+        //         // RenderSettings.skybox = skyboxMaterial;
+        //     }
+        // }
+        
+        // if (GUI.Button(new Rect(400, 0, 200, 100), "Save Cubemap To Png"))
+        // {
+        //     using (Timer timer = new Timer("SaveCubeToPng", Timer.ETimerUnit.Millisecond))
+        //     {
+        //         SaveCubeAsPng(m_rebuiltCubemap, "RebuildSH3");
+        //     }
+        // }
         
         if (GUI.Button(new Rect(0, 100, 200, 100), "Generate SH_N Coefficient"))
         {
@@ -39,33 +66,15 @@ public class SH : MonoBehaviour
                 // m_shCoefficients2 = CalculateSHCoefficient4(skyCubemap, SHOrder, m_rndPoints);
             }
         }
-
-        if (GUI.Button(new Rect(200, 0, 200, 100), "Rebuild SH_3 To Cubemap"))
-        {
-            using (Timer timer = new Timer("RebuildCubemap", Timer.ETimerUnit.Millisecond))
-            {
-                m_rebuiltCubemap = RebuildSH3ToCubemap(skyCubemap.width, m_shCoefficients, 1024 * 1024);
-                // skyboxMaterial.SetTexture("_SkyboxTex", m_rebuiltCubemap);
-                // RenderSettings.skybox = skyboxMaterial;
-            }
-        }
         
         if (GUI.Button(new Rect(200, 100, 200, 100), "Rebuild SH_N To Cubemap"))
         {
             using (Timer timer = new Timer("Rebuild Optimized", Timer.ETimerUnit.Millisecond))
             {
-                m_rebuiltCubemap2 = RebuildToCubemap(skyCubemap.width, m_shCoefficients2, 1024 * 1024);
+                m_rebuiltCubemap2 = RebuildToCubemap(skyCubemap.width, m_shCoefficients2, 512 * 512);
             }
         }
 
-        if (GUI.Button(new Rect(400, 0, 200, 100), "Save Cubemap To Png"))
-        {
-            using (Timer timer = new Timer("SaveCubeToPng", Timer.ETimerUnit.Millisecond))
-            {
-                SaveCubeAsPng(m_rebuiltCubemap, "RebuildSH3");
-            }
-        }
-        
         if (GUI.Button(new Rect(400, 100, 200, 100), "Save Cubemap To Png"))
         {
             using (Timer timer = new Timer("SaveCubeToPng", Timer.ETimerUnit.Millisecond))
@@ -77,6 +86,33 @@ public class SH : MonoBehaviour
         if (GUI.Button(new Rect(200, 600, 200, 100), "Generate Random Points"))
         {
             m_rndPoints = GenerateRandomPoints(4096);
+        }
+        if (GUI.Button(new Rect(0, 400, 200, 100), "SH Coefficient Visualization"))
+        {
+            VisualizationSH_N(m_visualizeLevel, 1024 * 16, out m_shVisualDatas);
+
+            m_gizmosPoints = new Vector4[m_shVisualDatas.Length];
+            for (int i = 0; i < m_shVisualDatas.Length; i++)
+            {
+                m_gizmosPoints[i] = m_shVisualDatas[i].position;
+            }
+        }
+
+        m_visualizeLevel = (int)GUI.HorizontalSlider(new Rect(0, 500, 200, 50), m_visualizeLevel, 0, 48);
+        GUI.Label(new Rect(220, 500, 200, 50), "Y(l,m): " + m_visualizeLevel.ToString());
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (m_shVisualDatas != null)
+        {
+            for (int i = 0; i < m_shVisualDatas.Length; i++)
+            {
+                Color originColor = Gizmos.color;
+                Gizmos.color = m_shVisualDatas[i].color;
+                Gizmos.DrawSphere(m_shVisualDatas[i].position, 0.005f);
+                Gizmos.color = originColor;
+            }
         }
     }
 
@@ -90,6 +126,54 @@ public class SH : MonoBehaviour
         }
 
         return rndPoints;
+    }
+    
+    private void VisualizationSH_3(int yIndex, int pointCount, out SHVisualizeData[] visualDatas)
+    {
+        visualDatas = new SHVisualizeData[pointCount];
+        for (int i = 0; i < pointCount; i++)
+        {
+            Vector4 randomPoint = Random.onUnitSphere;
+            float coefficient = SHCoefficient.Y(yIndex, randomPoint);
+            float distanceFromOrigin = Mathf.Abs(coefficient);
+
+            Vector3 visualizedPosition = randomPoint * distanceFromOrigin;
+            Vector3 convertedPosition = new Vector3(visualizedPosition.y, visualizedPosition.z, -visualizedPosition.x);
+            
+            Color color = coefficient > 0 ? Color.green : Color.red;
+            color = color * distanceFromOrigin;
+            
+            SHVisualizeData data = new SHVisualizeData();
+            data.position = convertedPosition;
+            data.distanceFromOrigin = distanceFromOrigin;
+            data.color = color;
+            visualDatas[i] = data;
+        }
+    }
+    
+    private void VisualizationSH_N(int yIndex, int pointCount, out SHVisualizeData[] visualDatas)
+    {
+        visualDatas = new SHVisualizeData[pointCount];
+        for (int i = 0; i < pointCount; i++)
+        {
+            Vector4 randomPoint = Random.onUnitSphere;
+            float theta, phi;
+            CartesianToSphere2(randomPoint, out theta, out phi);
+            float coefficient = SHCoefficient2.Y(yIndex, theta, phi);
+            float distanceFromOrigin = Mathf.Abs(coefficient);
+
+            Vector3 visualizedPosition = randomPoint * distanceFromOrigin;
+            Vector3 convertedPosition = new Vector3(visualizedPosition.y, visualizedPosition.z, -visualizedPosition.x);
+            
+            Color color = coefficient > 0 ? Color.green : Color.red;
+            color = color * distanceFromOrigin;
+            
+            SHVisualizeData data = new SHVisualizeData();
+            data.position = convertedPosition;
+            data.distanceFromOrigin = distanceFromOrigin;
+            data.color = color;
+            visualDatas[i] = data;
+        }
     }
 
     private void Verify()
@@ -656,9 +740,6 @@ public class SH : MonoBehaviour
                 rebuiltColor.b += coefficient.z * shBasis;
             }
             
-            // Test //
-            // rebuiltColor = rebuiltColor.linear;
-            
             faceColors[(int)face][pixelIndex] = rebuiltColor;
         }
 
@@ -688,6 +769,21 @@ public class SH : MonoBehaviour
 
     // return theta: [0, pi],   phi: [0, 2*pi] //
     private void CartesianToSphere(Vector3 pointOnSphere, ref float theta, ref float phi)
+    {
+        theta = Mathf.Acos(pointOnSphere.z);                  // [0, pi] //
+        phi = Mathf.Atan(pointOnSphere.y/pointOnSphere.x);    // [-2/pi, 2/pi]
+        
+        if (pointOnSphere.x < 0)
+        {
+            phi += Mathf.PI;
+        }
+        else if (pointOnSphere.y < 0)
+        {
+            phi += 2 * Mathf.PI;
+        }
+    }
+    
+    private void CartesianToSphere2(Vector3 pointOnSphere, out float theta, out float phi)
     {
         theta = Mathf.Acos(pointOnSphere.z);                  // [0, pi] //
         phi = Mathf.Atan(pointOnSphere.y/pointOnSphere.x);    // [-2/pi, 2/pi]
