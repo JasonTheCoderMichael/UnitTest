@@ -137,10 +137,4 @@ public class SHCoefficient2
     {
         return Mathf.Cos(radian);
     }
-    
-    private static void IndexToLM(int index, out int l, out int m)
-    {
-        l = (int)Mathf.Sqrt(index);
-        m = index - l * (l + 1);
-    }
 }

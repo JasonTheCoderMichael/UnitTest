@@ -32,31 +32,31 @@ public class SH : MonoBehaviour
 
     private void OnGUI()
     {
-        // if (GUI.Button(new Rect(0, 0, 200, 100), "Generate SH_3 Coefficient"))
-        // {
-        //     using (Timer timer = new Timer("CalculateSHCoefficient", Timer.ETimerUnit.Millisecond))
-        //     {
-        //         m_shCoefficients = CalculateCoefficientSH_3(skyCubemap, m_rndPoints);
-        //     }
-        // }
-        //
-        // if (GUI.Button(new Rect(200, 0, 200, 100), "Rebuild SH_3 To Cubemap"))
-        // {
-        //     using (Timer timer = new Timer("RebuildCubemap", Timer.ETimerUnit.Millisecond))
-        //     {
-        //         m_rebuiltCubemap = RebuildSH3ToCubemap(skyCubemap.width, m_shCoefficients, 1024 * 1024);
-        //         // skyboxMaterial.SetTexture("_SkyboxTex", m_rebuiltCubemap);
-        //         // RenderSettings.skybox = skyboxMaterial;
-        //     }
-        // }
+        if (GUI.Button(new Rect(0, 0, 200, 100), "Generate SH_3 Coefficient"))
+        {
+            using (Timer timer = new Timer("CalculateSHCoefficient", Timer.ETimerUnit.Millisecond))
+            {
+                m_shCoefficients = CalculateCoefficientSH_3(skyCubemap, m_rndPoints);
+            }
+        }
         
-        // if (GUI.Button(new Rect(400, 0, 200, 100), "Save Cubemap To Png"))
-        // {
-        //     using (Timer timer = new Timer("SaveCubeToPng", Timer.ETimerUnit.Millisecond))
-        //     {
-        //         SaveCubeAsPng(m_rebuiltCubemap, "RebuildSH3");
-        //     }
-        // }
+        if (GUI.Button(new Rect(200, 0, 200, 100), "Rebuild SH_3 To Cubemap"))
+        {
+            using (Timer timer = new Timer("RebuildCubemap", Timer.ETimerUnit.Millisecond))
+            {
+                m_rebuiltCubemap = RebuildSH3ToCubemap(skyCubemap.width, m_shCoefficients, 1024 * 1024);
+                // skyboxMaterial.SetTexture("_SkyboxTex", m_rebuiltCubemap);
+                // RenderSettings.skybox = skyboxMaterial;
+            }
+        }
+        
+        if (GUI.Button(new Rect(400, 0, 200, 100), "Save Cubemap To Png"))
+        {
+            using (Timer timer = new Timer("SaveCubeToPng", Timer.ETimerUnit.Millisecond))
+            {
+                SaveCubeAsPng(m_rebuiltCubemap, "RebuildSH3");
+            }
+        }
         
         if (GUI.Button(new Rect(0, 100, 200, 100), "Generate SH_N Coefficient"))
         {
@@ -71,7 +71,7 @@ public class SH : MonoBehaviour
         {
             using (Timer timer = new Timer("Rebuild Optimized", Timer.ETimerUnit.Millisecond))
             {
-                m_rebuiltCubemap2 = RebuildToCubemap(skyCubemap.width, m_shCoefficients2, 512 * 512);
+                m_rebuiltCubemap2 = RebuildToCubemap(skyCubemap.width, m_shCoefficients2, 1024 * 1024);
             }
         }
 
@@ -314,11 +314,8 @@ public class SH : MonoBehaviour
             Vector3 rndPoint = rndPoints[i];
             CubemapFace face = GetCubemapFace(rndPoint);
             Vector2 uv = GetUV(face, rndPoint);
-            // int coordX = (int) (cubemap.width * uv.x);     // [0, width - 1] //
-            // int coordY = (int) (cubemap.height * uv.y);    // [0, height - 1] //
-            // int colorIndex = coordY * cubemap.width + coordX;
             int pixelIndex = GetPixelIndex(cubemap.width, uv);
-            Color sourceColor = faceColors[(int) face][pixelIndex];
+            Color randiance = faceColors[(int) face][pixelIndex];
 
             float theta = 0;
             float phi = 0;  
@@ -335,12 +332,10 @@ public class SH : MonoBehaviour
             
             for (int j = 0; j < shCoefficients.Length; j++)
             {
-                // Vector4 coefficient = shCoefficients[j];
                 float shBasis = shBases[j];
-                shCoefficients[j].x += sourceColor.r * shBasis;
-                shCoefficients[j].y += sourceColor.g * shBasis;
-                shCoefficients[j].z += sourceColor.b * shBasis;
-                // shCoefficients[j] = coefficient;
+                shCoefficients[j].x += randiance.r * shBasis;
+                shCoefficients[j].y += randiance.g * shBasis;
+                shCoefficients[j].z += randiance.b * shBasis;
             }
         }
 
