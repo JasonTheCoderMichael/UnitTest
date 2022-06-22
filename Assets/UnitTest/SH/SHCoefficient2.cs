@@ -50,7 +50,7 @@ public class SHCoefficient2
     }
 
     // 当 m==0 时传入的参数为 -1 //
-    // private static float DoubleFactorial(int x)
+    // private static int DoubleFactorial(int x)
     // {
     //     if (x == 0 || x == -1)
     //     {
@@ -66,7 +66,7 @@ public class SHCoefficient2
     //     return result;
     // }
     
-    private static float DoubleFactorial(int x)
+    private static int DoubleFactorial(int x)
     {
         if (x == 0 || x == -1)
         {

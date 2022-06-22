@@ -15,7 +15,8 @@ public class SH : MonoBehaviour
 
     private Vector3[] m_rndPoints;
     private Vector4[] m_gizmosPoints;
-    private int m_visualizeLevel;
+    private int m_l = 0;
+    private int m_m = 0;
 
     private SHVisualizeData[] m_shVisualDatas;
     
@@ -63,7 +64,6 @@ public class SH : MonoBehaviour
             using (Timer timer = new Timer("CalculateSHCoefficient", Timer.ETimerUnit.Millisecond))
             {
                 m_shCoefficients2 = CalculateCoefficientSH_N(skyCubemap, SHOrder, m_rndPoints);
-                // m_shCoefficients2 = CalculateSHCoefficient4(skyCubemap, SHOrder, m_rndPoints);
             }
         }
         
@@ -89,7 +89,7 @@ public class SH : MonoBehaviour
         }
         if (GUI.Button(new Rect(0, 400, 200, 100), "SH Coefficient Visualization"))
         {
-            VisualizationSH_N(m_visualizeLevel, 1024 * 16, out m_shVisualDatas);
+            VisualizationSH_N(m_l, m_m, 1024 * 64, out m_shVisualDatas);
 
             m_gizmosPoints = new Vector4[m_shVisualDatas.Length];
             for (int i = 0; i < m_shVisualDatas.Length; i++)
@@ -98,8 +98,17 @@ public class SH : MonoBehaviour
             }
         }
 
-        m_visualizeLevel = (int)GUI.HorizontalSlider(new Rect(0, 500, 200, 50), m_visualizeLevel, 0, 48);
-        GUI.Label(new Rect(220, 500, 200, 50), "Y(l,m): " + m_visualizeLevel.ToString());
+        GUILayout.BeginHorizontal();
+        m_l = (int)GUI.HorizontalSlider(new Rect(0, 500, 200, 20), m_l, 0, 10);
+        GUI.Label(new Rect(220, 500, 200, 20), $"L: {m_l}");
+        GUILayout.EndHorizontal();
+        
+        GUILayout.BeginHorizontal();
+        m_m = Mathf.Max(-m_l, m_m);
+        m_m = Mathf.Min(m_l, m_m);
+        m_m = (int)GUI.HorizontalSlider(new Rect(0, 530, 200, 50), m_m, -m_l, m_l);
+        GUI.Label(new Rect(220, 530, 200, 50), $"M: {m_m}");
+        GUILayout.EndHorizontal();
     }
 
     private void OnDrawGizmos()
@@ -151,7 +160,7 @@ public class SH : MonoBehaviour
         }
     }
     
-    private void VisualizationSH_N(int yIndex, int pointCount, out SHVisualizeData[] visualDatas)
+    private void VisualizationSH_N(int l, int m, int pointCount, out SHVisualizeData[] visualDatas)
     {
         visualDatas = new SHVisualizeData[pointCount];
         for (int i = 0; i < pointCount; i++)
@@ -159,7 +168,7 @@ public class SH : MonoBehaviour
             Vector4 randomPoint = Random.onUnitSphere;
             float theta, phi;
             CartesianToSphere2(randomPoint, out theta, out phi);
-            float coefficient = SHCoefficient2.Y(yIndex, theta, phi);
+            float coefficient = SHCoefficient2.Y(l, m, theta, phi);
             float distanceFromOrigin = Mathf.Abs(coefficient);
 
             Vector3 visualizedPosition = randomPoint * distanceFromOrigin;
@@ -174,52 +183,6 @@ public class SH : MonoBehaviour
             data.color = color;
             visualDatas[i] = data;
         }
-    }
-
-    private void Verify()
-    {
-        int rndNum = 2;
-        Vector3[] rndPoints = new Vector3[rndNum];
-        for (int i = 0; i < rndNum; i++)
-        {
-            rndPoints[i] = Random.onUnitSphere;
-        }
-
-        for (int i = 0; i < rndNum; i++)
-        {
-            for (int l = 0; l < 3; l++)
-            {
-                for (int m = -l; m <= l; m++)
-                {
-                    float y1 = SHCoefficient.SHBasis(l, m, rndPoints[i]);
-                    
-                    float theta = 0;
-                    float phi = 0;
-                    CartesianToSphere(rndPoints[i], ref theta, ref phi);
-                    float y2 = SHCoefficient2.Y(l, m, theta, phi);
-                        
-                    Debug.Log($"l = {l}, m = {m}, {Mathf.Abs(y1 - y2) < 0.0001f}");
-                }
-            }
-                
-            Debug.Log("===================================");
-        }
-    }
-
-    private bool Verify2()
-    {
-        for (int i = 0; i < SHOrder * SHOrder; i++)
-        {
-            if (Mathf.Abs(m_shCoefficients[i].x) - Mathf.Abs(m_shCoefficients2[i].x) > 0.0001f || 
-                Mathf.Abs(m_shCoefficients[i].y) - Mathf.Abs(m_shCoefficients2[i].y) > 0.0001f ||
-                Mathf.Abs(m_shCoefficients[i].z) - Mathf.Abs(m_shCoefficients2[i].z) > 0.0001f ||
-                Mathf.Abs(m_shCoefficients[i].w) - Mathf.Abs(m_shCoefficients2[i].w) > 0.0001f)
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private Cubemap SampleCubemapAndDoNothing(Cubemap cubemap, int sampleCount)
@@ -346,59 +309,7 @@ public class SH : MonoBehaviour
 
         return shCoefficients;
     }
-    
-    private Vector4[] CalculateSHCoefficient4(Cubemap cubemap, int shOrder, Vector3[] rndPoints)
-    {
-        if (cubemap == null || rndPoints == null)
-        {
-            return null;
-        }
 
-        Vector4[] shCoefficients = new Vector4[shOrder * shOrder];
-        for (int i = 0; i < shCoefficients.Length; i++)
-        {
-            shCoefficients[i] = Vector4.zero;
-        }
-        
-        Color[][] faceColors = new Color[6][];
-        for (int i = 0; i < 6; i++)
-        {
-            faceColors[i] = cubemap.GetPixels((CubemapFace)i);
-        }
-
-        int cubemapSize = cubemap.width;
-        for (int i = 0; i < shCoefficients.Length; i++)
-        {
-            int l, m;
-            IndexToLM(i, out l, out m);
-            
-            for (int j = 0; j < rndPoints.Length; j++)
-            {
-                Vector3 rndPoint = rndPoints[j];
-                CubemapFace face = GetCubemapFace(rndPoint);
-                Vector2 uv = GetUV(face, rndPoint);
-                int pixelIndex = GetPixelIndex(cubemapSize, uv);
-                Color radiance = faceColors[(int) face][pixelIndex];
-
-                float theta = 0;
-                float phi = 0;  
-                CartesianToSphere(rndPoint, ref theta, ref phi);
-                
-                float shBasis = SHCoefficient2.Y(l, m, theta, phi);
-                shCoefficients[i].x += radiance.r * shBasis;
-                shCoefficients[i].y += radiance.g * shBasis;
-                shCoefficients[i].z += radiance.b * shBasis;
-            }
-        }
-
-        for (int i = 0; i < shCoefficients.Length; i++)
-        {
-            shCoefficients[i] = shCoefficients[i] * 4.0f * Mathf.PI / rndPoints.Length;
-        }
-
-        return shCoefficients;
-    }
-    
     private Cubemap RebuildToCubemap(int width, Vector4[] shCoefficients, int rebuildSampleCount)
     {
         if (shCoefficients == null)
